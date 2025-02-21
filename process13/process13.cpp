@@ -1,4 +1,4 @@
-﻿#include <windows.h>
+#include <windows.h>
 #include <iostream>
 #include <string>
 
@@ -19,7 +19,7 @@ int main() {
 
     STARTUPINFO si = { sizeof(si) };
     PROCESS_INFORMATION pi;
-    if (!CreateProcess(L"C:\\Users\\ipch\\Downloads\\process13-master\\process13-master\\x64\\Debug\\child.exe", NULL, NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi)) {
+    if (!CreateProcess(L"C:\\Users\\328-7\\Downloads\\new_process13-master\\new_process13-master\\x64\\Debug\\child.exe", NULL, NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi)) {
         cerr << "[Родительский процесс] Ошибка создания дочернего процесса!" << GetLastError() <<endl;
         CloseHandle(hPipe);
         return 1;
