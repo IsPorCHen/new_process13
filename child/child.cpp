@@ -1,8 +1,8 @@
 #include <windows.h>
-#include <iostream>
 #include <string>
-#include <vector>
+#include <iostream>
 #include <unordered_map>
+#include <vector>
 
 using namespace std;
 
@@ -15,59 +15,75 @@ int threadCount = 0;
 
 DWORD WINAPI ThreadFunction(LPVOID lpParam) {
     int id = *(int*)lpParam;
-    srand(time(0) + id);
-    int a = rand() % 100;
-    int b = rand() % 100;
-	WaitForSingleObject(mutex, INFINITE);
-    cout << "[Поток " << id << "] Сумма: " << a << " + " << b << " = " << (a + b) << endl;
-	ReleaseMutex(mutex);
-	Sleep(2000);
+    srand(GetTickCount() + id);
+
+    while (true) {
+        if (!threadRunning[id]) break;
+
+        int a = rand() % 100;
+        int b = rand() % 100;
+
+        WaitForSingleObject(mutex, INFINITE);
+        cout << "[Поток " << id << "] Сумма: " << a << " + " << b << " = " << (a + b) << endl;
+        ReleaseMutex(mutex);
+
+        Sleep(2000);
+    }
+
+    WaitForSingleObject(mutex, INFINITE);
+    cout << "[Поток " << id << "] Завершается." << endl;
+    ReleaseMutex(mutex);
+
     return 0;
 }
 
 void CreateThreads(int count) {
     for (int i = 0; i < count; i++) {
-		threadCount++;
-		threadRunning[threadCount] = true;
-        int* threadID = new int(i + 1);
+        threadCount++;
+        threadRunning[threadCount] = true;
+
+        int* threadID = new int(threadCount);
         HANDLE hThread = CreateThread(NULL, 0, ThreadFunction, threadID, 0, NULL);
+
         if (hThread) {
-			WaitForSingleObject(mutex, INFINITE);
-            cout << "[Дочерний процесс] Создан поток " << (*threadID) << endl;
-			ReleaseMutex(mutex);
+            WaitForSingleObject(mutex, INFINITE);
+            cout << "[Дочерний процесс] Создан поток " << threadCount << endl;
+            ReleaseMutex(mutex);
+
             threads[threadCount] = hThread;
+        }
+        else {
+            delete threadID;
         }
     }
 }
 
 void DeleteThread(int id) {
-	if (threads.find(id) != threads.end())
-	{
-		threadRunning[id] = false;
+    if (threads.find(id) != threads.end()) {
+        threadRunning[id] = false;
+        WaitForSingleObject(threads[id], INFINITE);
+        CloseHandle(threads[id]);
 
-		WaitForSingleObject(mutex, INFINITE);
-		CloseHandle(threads[id]);
+        WaitForSingleObject(mutex, INFINITE);
+        cout << "[Дочерний процесс] Поток " << id << " удален." << endl;
+        ReleaseMutex(mutex);
 
-		threads.erase(id);
-		threadRunning.erase(id);
-		WaitForSingleObject(mutex, INFINITE);
-		cout << "[Дочерний процесс] Поток " << id << " удален." << endl;
-		ReleaseMutex(mutex);
-
-	}
-	else {
-		cout << "[Дочерний процесс] Ошибка, неверный id потока: " << GetLastError() ;
-	}
-	//if (id > 0 && id <= threads.size()) {
- //       TerminateThread(threads[id - 1], 0);
- //       CloseHandle(threads[id - 1]);
- //       threads.erase(threads.begin() + id - 1);
- //       cout << "[Дочерний процесс] Поток " << id << " удален." << endl;
- //   }
+        threads.erase(id);
+        threadRunning.erase(id);
+    }
+    else {
+        WaitForSingleObject(mutex, INFINITE);
+        cout << "[Дочерний процесс] Ошибка: поток с ID " << id << " не найден." << endl;
+        ReleaseMutex(mutex);
+    }
 }
 
 int main() {
-    setlocale(0, "rus");
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+    setlocale(LC_ALL, "ru_RU.UTF-8");
+    mutex = CreateMutex(NULL, FALSE, NULL);
+
     HANDLE hPipe = CreateFile(PIPE_NAME, GENERIC_READ, 0, NULL, OPEN_EXISTING, 0, NULL);
     if (hPipe == INVALID_HANDLE_VALUE) {
         cerr << "[Дочерний процесс] Ошибка подключения к каналу! Код ошибки: " << GetLastError() << endl;
@@ -78,7 +94,6 @@ int main() {
 
     char buffer[256];
     while (true) {
-		int count = 0;
         DWORD bytesRead;
         if (ReadFile(hPipe, buffer, sizeof(buffer), &bytesRead, NULL)) {
             string command(buffer);
@@ -87,34 +102,28 @@ int main() {
                 cout << "[Дочерний процесс] Получена команда: " << command << endl;
 
                 if (command[0] == '1') {
-                    count = stoi(command.substr(2));
+                    int count = stoi(command.substr(2));
                     CreateThreads(count);
                 }
                 else if (command[0] == '2') {
                     int id = stoi(command.substr(2));
-					DeleteThread(id);
-                }
-                else if (command[0] == '3') {
-                    break;
+                    DeleteThread(id);
                 }
             }
         }
-	
-		memset(buffer, 0, sizeof(buffer));
+
+        memset(buffer, 0, sizeof(buffer));
         Sleep(500);
     }
 
-	for (auto it = threads.begin(); it != threads.end(); ++it) {
-		WaitForSingleObject(mutex, INFINITE);
-		CloseHandle(it->second);
-	}
-
-    //for (HANDLE thread : threads) {
-    //    TerminateThread(thread, 0);
-    //    CloseHandle(thread);
-    //}
+    for (auto it = threads.begin(); it != threads.end(); ++it) {
+        threadRunning[it->first] = false;
+        WaitForSingleObject(it->second, INFINITE);
+        CloseHandle(it->second);
+    }
 
     CloseHandle(hPipe);
+    CloseHandle(mutex);
     cout << "[Дочерний процесс] Завершение работы." << endl;
     return 0;
 }
