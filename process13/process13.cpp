@@ -7,7 +7,9 @@ using namespace std;
 #define PIPE_NAME L"\\\\.\\pipe\\MyPipe"
 
 int main() {
-    setlocale(0, "rus");
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+    setlocale(LC_ALL, "ru_RU.UTF-8");
 
     HANDLE hPipe = CreateNamedPipe(PIPE_NAME, PIPE_ACCESS_OUTBOUND, PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT, 1, 256, 256, 0, NULL);
     if (hPipe == INVALID_HANDLE_VALUE) {
@@ -19,7 +21,7 @@ int main() {
 
     STARTUPINFO si = { sizeof(si) };
     PROCESS_INFORMATION pi;
-    if (!CreateProcess(L"C:\\Users\\328-7\\Downloads\\new_process13-master\\new_process13-master\\x64\\Debug\\child.exe", NULL, NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi)) {
+    if (!CreateProcess(L"C:\\Users\\ipch\\source\\repos\\new_process13\\x64\\Debug\\child.exe", NULL, NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi)) {
         cerr << "[Родительский процесс] Ошибка создания дочернего процесса!" << GetLastError() <<endl;
         CloseHandle(hPipe);
         return 1;
